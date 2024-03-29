@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wemo-NST</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.4/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.4/Chart.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: beige;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin: 0;
+      padding: 0;
+      position: relative;
+    }
+
+    #logo {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 200px;
+      height: auto;
+    }
+
+    .chart-container {
+      width: 100%;
+      max-width: 800px;
+      margin-bottom: 20px;
+      background-color: white;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      padding: 20px;
+    }
+
+    .numeric-value {
+      font-size: 18px;
+      font-weight: bold;
+      margin-top: 10px;
+    }
+
+    #timer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      padding: 10px;
+      background-color: #ccc;
+      font-size: 20px;
+      font-weight: bold;
+    }
+
+    button {
+      background-color: #4caf50;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    button:hover {
+      background-color: #45a049;
+    }
+  </style>
+</head>
+
+<body>
+  <img id="logo" src="file:///D:/.TEKMED/logo1.png" alt="Logo">
+  <div id="timer"></div>
+  <div>
+    <label for="fileDir">Folder Penyimpanan:</label>
+    <input type="file" id="fileDir" accept="directory" onchange="setStorageDir()">
+  </div>
+  <div>
+    <label for="fileName">Nama File:</label>
+    <input type="text" id="fileName" value="data.xlsx" oninput="setFileName()">
+  </div>
+  <div class="chart-container">
+    <canvas id="chart" style="width: 100%; height: 30vh"></canvas>
+    <div id="valueChart1" class="numeric-value"></div>
+    <div id="valueBPM" class="numeric-value"></div>
+  </div>
+  <div class="chart-container">
+    <canvas id="chart2" style="width: 100%; height: 30vh"></canvas>
+    <div id="valueChart2" class="numeric-value"></div>
+  </div>
+  <div class="chart-container">
+    <canvas id="chart3" style="width: 100%; height: 15vh"></canvas>
+    <div id="valueButtonCount" class="numeric-value"></div>
+  </div>
+  <button id="saveDataButton">Save Data</button><br>
+  <button id="resetButton">Reset Charts</button>
+  <script>
+    let storageDir = '';
+    let fileName = 'data.xlsx';
+    let startTime = new Date().getTime(); // Define startTime
+
+    const setStorageDir = () => {
+      const fileDirInput = document.getElementById('fileDir');
+      storageDir = fileDirInput.files[0].path;
+    };
+
+    const setFileName = () => {
+      const fileNameInput = document.getElementById('fileName');
+      fileName = fileNameInput.value;
+    };
+
+    setInterval(() => {
+      const elapsedTime = (new Date().getTime() - startTime) / 1000;
+      document.getElementById("timer").innerHTML = `Waktu: ${elapsedTime} detik`;
+    }, 1000);
+
+    const saveDataToFile = () => {
+      const fileNameInput = document.getElementById('fileName');
+      fileName = fileNameInput.value;
+
+      const fileDirInput = document.getElementById('fileDir');
+      storageDir = fileDirInput.files[0].path;
+
+      // Prepare column names and data rows
+      const columnNames = ['Date', 'Time', 'BPM', 'Loadcell', 'Button State', 'Button Count', 'Piezo'];
+      const rows = [columnNames];
+
+      // Iterate over dataSimpan array and create data rows
+      dataSimpan.forEach((data) => {
+        const rowValues = [
+          data.Date,
+          data.Time,
+          data.BPM,
+          data.Loadcell,
+          data['Button State'],
+          data['Button Count'],
+          data.Piezo,
+        ];
+        rows.push(rowValues);
+      });
+
+      // Create a new Excel workbook
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+      XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+
+      // Convert workbook to binary Excel file
+      const wbBinary = XLSX.write(wb, { bookType: 'xlsx', type: 'binary' });
+
+      // Convert binary string to Blob
+      const blob = new Blob([s2ab(wbBinary)], { type: 'application/octet-stream' });
+
+      // Create URL for the Blob object
+      const url = URL.createObjectURL(blob);
+
+      // Create a download link (<a> element) with the Blob object URL
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName; // Set the filename for the downloaded file
+
+      // Append the <a> element to the document body
+      document.body.appendChild(a);
+
+      // Simulate a click on the <a> element to trigger the download
+      a.click();
+
+      // Remove the <a> element from the document body
+      document.body.removeChild(a);
+
+      // Revoke the URL to release the resources
+      URL.revokeObjectURL(url);
+    };
+
+    // Utility function to convert string to array buffer
+    function s2ab(s) {
+      const buf = new ArrayBuffer(s.length);
+      const view = new Uint8Array(buf);
+      for (let i = 0; i < s.length; i++) {
+        view[i] = s.charCodeAt(i) & 0xFF;
+      }
+      return buf;
+    }
+
+    const resetCharts = () => {
+      data1.length = 0;
+      data2.length = 0;
+      data3.length = 0;
+      labels.length = 0;
+      dataSimpan.length = 0; // Reset dataSimpan array
+
+      // Clear existing charts
+      Chart.helpers.each(Chart.instances, (instance) => {
+        instance.destroy();
+      });
+
+      // Clear numeric values
+      document.getElementById("valueChart1").innerHTML = "";
+      document.getElementById("valueChart2").innerHTML = "";
+      document.getElementById("valueButtonCount").innerHTML = "";
+
+      const url =
+        "https://sgp1.blynk.cloud/external/api/update?token=HEQXjZUgfqmhfMSMGI0HFQalzeC6RQc7&dataStreamId=4&value=0";
+
+      // Recreate charts with updated data
+      updateAllCharts();
+    };
+
+    const data1 = [];
+    const data2 = [];
+    const data3 = [];
+    const labels = [];
+    const timer = [];
+
+    const dataSimpan = []; // Array to store fetched data along with timestamp
+
+    const generateData = () => {
+      const url =
+        "https://sgp1.blynk.cloud/external/api/get?token=HEQXjZUgfqmhfMSMGI0HFQalzeC6RQc7&v0&v1&v2&v3&v4";
+
+      fetch(url)
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+          }
+          return response.json();
+        })
+        .then((data) => {
+          const currentDate = new Date();
+          const formattedDateTime = currentDate.toLocaleString('en-US');
+
+          data1.push(data.v4);
+          data2.push(data.v1);
+          data3.push(data.v2);
+
+          const valueElement = document.getElementById("valueButtonCount");
+          valueElement.innerHTML = `Count: ${data.v3}`;
+          const valueBPM = document.getElementById("valueBPM");
+          valueBPM.innerHTML = `BPM: ${data.v0}`;
+
+          const timestampData = {
+            Date: formattedDateTime.split(',')[0].trim(),
+            Time: formattedDateTime.split(',')[1].trim(),
+            BPM: data.v0,
+            Loadcell: data.v1,
+            'Button State': data.v2,
+            'Button Count': data.v3,
+            Piezo: data.v4,
+          };
+          dataSimpan.push(timestampData);
+
+          updateAllCharts(); // Update charts after data is fetched
+        })
+        .catch((error) => {
+          console.error("Error:", error);
+        });
+
+      labels.push(Math.round(elapsedTime));
+    };
+
+    setInterval(() => {
+      generateData();
+    }, 1000);
+
+    const updateChart = (chartId, chartTitle, chartData, valueId, max) => {
+      if (data1.length > 20) {
+        data1.shift();
+        data2.shift();
+        data3.shift();
+        labels.shift();
+      }
+
+      const chart = new Chart(document.getElementById(chartId), {
+        type: "line",
+        data: {
+          labels,
+          datasets: [
+            {
+              label: chartTitle,
+              data: chartData,
+              borderColor: "#333",
+              borderWidth: 2,
+              fill: false,
+              lineTension: 0,
+            },
+          ],
+        },
+        options: {
+          animation: false,
+          title: {
+            display: true,
+            text: chartTitle,
+          },
+          scales: {
+            yAxes: [
+              {
+                ticks: {
+                  suggestedMin: -max,
+                  suggestedMax: max,
+                },
+                gridLines: {
+                  color: "red",
+                  lineWidth: 0.5,
+                },
+              },
+            ],
+            xAxes: [
+              {
+                gridLines: {
+                  color: "red",
+                  lineWidth: 0.5,
+                },
+              },
+            ],
+          },
+          legend: {
+            display: false,
+          },
+        },
+      });
+
+      const valueElement = document.getElementById(valueId);
+      valueElement.innerHTML = `Nilai: ${chartData[chartData.length - 1]}`;
+    };
+
+    const updateAllCharts = () => {
+      updateChart(
+        "chart",
+        "Fetal Heart Rate Signal",
+        data1,
+        "valueChart1",
+        (max = 300)
+      );
+      updateChart(
+        "chart2",
+        "Ploting Kontraksi Rahim",
+        data2,
+        "valueChart2",
+        (max = 80)
+      );
+      updateChart("chart3", "Button Mark", data3, "valueButtonCount", (max = 1));
+    };
+
+    document
+      .getElementById("resetButton")
+      .addEventListener("click", resetCharts);
+
+    document
+      .getElementById("saveDataButton")
+      .addEventListener("click", saveDataToFile);
+  </script>
+</body>
+
+</html>
